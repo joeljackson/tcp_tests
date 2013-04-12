@@ -12,7 +12,12 @@
 
 int main() { 
   json_t *configuration;
+  const char *host;
   configuration = read_configuration();
+
+  host = json_string_value(json_object_get(configuration, "host"));
+  fprintf(stderr, "host: %s\n", host);
+
   return 0;
 }
 
