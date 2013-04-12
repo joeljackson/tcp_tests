@@ -6,6 +6,7 @@
       "bandwidth_mps": 10,
       "latency_ms": 0,
       "file_size_kb": 10,
+      "iterations": 100,
       "x_axis":{
         "variable": "latency_ms",
         "values": [0,10,20,30,40,50,60,70,80,90,100,110,120,130,140,150,160,170,180,190,200]
@@ -20,6 +21,7 @@
       "bandwidth_mps": 10,
       "latency_ms": 0,
       "file_size_kb": 10,
+      "iterations": 100,
       "x_axis":{
         "variable": "file_size_kb",
         "values": [2,6,10,14,18,22,26,30,34,38,42,46,50,54,56,60,64,68,72,76,80,84,88,92,96,100]

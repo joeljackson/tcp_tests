@@ -3,46 +3,35 @@
 #include <string.h>
 #include <stdlib.h>
 #include <netinet/in.h>
-#include <janssson.h>
+#include <jansson.h>
 
-const int KB_SIZE = 2048;
+#include "client.h"
+#include "string.h"
+#include "server.h"
 
-int main() {
+
+int main() { 
+  json_t *configuration;
+  configuration = read_configuration();
+  return 0;
+}
+
+void read_from_server(int iterations, int size){
   int server_socket_fd;
   int bytes_sent;
   int bytes_recieved;
   int loop_var;
+  char *recieve_buffer;
   struct sockaddr_in external_address;
-  char recieve_buffer[KB_SIZE * 1024];
-  char set_size[40] = "SETCWND 3";
-  char send_data[40] = "SENDDAT";
 
-  for(loop_var = 0; loop_var < 10; loop_var++){
+  recieve_buffer = malloc(size * 1024);
 
-    if((server_socket_fd = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP)) == -1){
-      perror("socket");
-      exit(1);
-    }
+  external_address.sin_family = AF_INET;
+  external_address.sin_port = htons(5010);
+  external_address.sin_addr.s_addr = inet_addr("54.225.93.141");
+  memset(&(external_address.sin_zero), '\0', 8);
 
-    external_address.sin_family = AF_INET;    // host byte order 
-    external_address.sin_port = htons(5010);  // short, network byte order 
-    external_address.sin_addr.s_addr = inet_addr("54.225.93.141");
-    memset(&(external_address.sin_zero), '\0', 8);  // zero the rest of the struct 
-
-    fprintf(stderr, "Connecting\n");
-    if (connect(server_socket_fd, (struct sockaddr *)&external_address, sizeof(struct sockaddr)) == -1) {
-      perror("connect");
-      exit(1);
-    }
-
-    fprintf(stderr, "About to send data\n");
-    if((bytes_sent = send(server_socket_fd, set_size, 11, 0)) == -1){
-      perror("send");
-      exit(1);
-    }
-    fprintf(stderr, "Data sent\n");
-    close(server_socket_fd);
-
+  for(loop_var = 0; loop_var < iterations; loop_var++){
     if((server_socket_fd = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP)) == -1){
       perror("socket");
       exit(1);
@@ -54,13 +43,13 @@ int main() {
     }
 
     fprintf(stderr, "About to send data\n");
-    if((bytes_sent = send(server_socket_fd, send_data, 8, 0)) == -1){
+    if((bytes_sent = send(server_socket_fd, SEND_DATA, 8, 0)) == -1){
       perror("send");
       exit(1);
     }
     fprintf(stderr, "Data sent\n");
 
-    if ((bytes_recieved=recv(server_socket_fd, recieve_buffer, KB_SIZE * 1024, MSG_WAITALL)) == -1) {
+    if ((bytes_recieved=recv(server_socket_fd, recieve_buffer, size * 1024, MSG_WAITALL)) == -1) {
       perror("recv");
       exit(1);
     }
@@ -68,8 +57,92 @@ int main() {
     printf("I got %i bytes\n\n", bytes_recieved);
     close(server_socket_fd);
   }
-
-
-  return 0;
 }
+
+void set_congestion_window(int packets){
+  int server_socket_fd;
+  int bytes_sent;
+  char command[20];
+  struct sockaddr_in external_address;
+
+  if((server_socket_fd = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP)) == -1){
+    perror("socket");
+    exit(1);
+  }
+
+  external_address.sin_family = AF_INET;
+  external_address.sin_port = htons(5010);
+  external_address.sin_addr.s_addr = inet_addr("54.225.93.141");
+  memset(&(external_address.sin_zero), '\0', 8);
+
+  snprintf(command, 20, "%s %d", SET_CONGESTION_WINDOW, packets);
+
+  if (connect(server_socket_fd, (struct sockaddr *)&external_address, sizeof(struct sockaddr)) == -1) {
+    perror("connect");
+    exit(1);
+  }
+
+  if((bytes_sent = send(server_socket_fd, command, 11, 0)) == -1){
+    perror("send");
+    exit(1);
+  }
+
+  close(server_socket_fd);
+}
+
+void set_send_size(int size){
+  int server_socket_fd;
+  int bytes_sent;
+  char command[20];
+  struct sockaddr_in external_address;
+
+  if((server_socket_fd = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP)) == -1){
+    perror("socket");
+    exit(1);
+  }
+
+  external_address.sin_family = AF_INET;
+  external_address.sin_port = htons(5010);
+  external_address.sin_addr.s_addr = inet_addr("54.225.93.141");
+  memset(&(external_address.sin_zero), '\0', 8);
+
+  snprintf(command, 20, "%s %d", SET_DATA_SIZE, size);
+
+  if (connect(server_socket_fd, (struct sockaddr *)&external_address, sizeof(struct sockaddr)) == -1) {
+    perror("connect");
+    exit(1);
+  }
+
+  if((bytes_sent = send(server_socket_fd, command, 11, 0)) == -1){
+    perror("send");
+    exit(1);
+  }
+
+  close(server_socket_fd);
+}
+
+json_t* read_configuration(){
+  int configuration_length;
+  int chars_read;
+  char line[500];
+  json_t *root;
+  json_error_t error;
+  String *configuration;
+  FILE *configuration_file;
+
+  configuration = new_string();
+  configuration_file = fopen("./configuration.json", "r");
+
+  while(fgets(line, 500, configuration_file) != NULL){
+    cat_string(configuration, line, 500);
+  }
+  fclose(configuration_file);  /* close the file prior to exiting the routine */
+
+  root = json_loads(configuration->buffer, 0, &error);
+  free_string(configuration);
+  return root;
+}
+
+
+
 
