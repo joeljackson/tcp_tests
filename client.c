@@ -13,12 +13,100 @@
 int main() { 
   json_t *configuration;
   const char *host;
+  const json_t *tests;
   configuration = read_configuration();
 
+  if(!json_is_string(json_object_get(configuration, "host"))){
+    fprintf(stderr, "Must have string host\n");
+    exit(1);
+  }
   host = json_string_value(json_object_get(configuration, "host"));
-  fprintf(stderr, "host: %s\n", host);
 
+  tests = json_object_get(configuration, "tests");
+  if(!json_is_array(tests)){
+    fprintf(stderr, "Must have array of tests\n");
+    exit(1);
+  }
+
+  execute_tests(tests, host);
   return 0;
+}
+
+void execute_tests(const json_t *tests, const char *host){
+  int loop_var;
+  int size;
+  json_t *test;
+
+  size = (int)json_array_size(test);
+  for(loop_var = 0; loop_var < size; loop_var++){
+    test = json_array_get(tests, loop_var);
+    if(!json_is_object(test)){
+      fprintf(stderr, "Test must be json object");
+      exit(1);
+    }
+    run_test_plan(test, host);
+  }
+}
+
+void run_test_plan(const json_t *test, const char *host){
+  NetParams network_parameters;
+  char *series_variable;
+  char *x_axis_variable;
+  json_t *series_variable_value;
+  json_t *x_axis_variable_value;
+  json_t *series;
+  json_t *x_axis;
+  json_t *series_values;
+  json_t *x_axis_values;
+
+  if(json_is_integer(json_object_get(test, "initcnwd"))){
+    set_congestion_window(json_integer_value(json_object_get(test, "initcnwd")));
+  }else{
+    fprintf(stderr, "Congestion window must be a string\n");
+    exit(1);
+  }
+
+  if(json_is_integer(json_object_get(test, "file_size_kb"))){
+    set_send_size(json_integer_value(json_object_get(test, "initcnwd")));
+  }else{
+    fprintf(stderr, "Congestion window must be a string\n");
+    exit(1);
+  }
+
+  network_parameters.latency = json_integer_value(json_object_get(test, "latency_ms"));
+  network_parameters.bandwidth = json_integer_value(json_object_get(test, "bandwidth_kps"));
+  network_parameters.packet_loss = json_integer_value(json_object_get(test, "packet_loss"));
+  set_network_params(network_parameters);
+
+  series = json_object_get(test, "series");
+  x_axis = json_object_get(test, "x_axis");
+
+  if(!json_is_object(series) || !json_is_object(x_axis)){
+    fprintf(stderr, "x_axis and series must be json objects\n");
+    exit(1);
+  }
+
+  series_values = json_object_get(series, "values");
+  series_variable_value = json_object_get(series, "variable");
+  x_axis_values = json_object_get(x_axis, "values");
+  x_axis_variable_value = json_object_get(x_axis, "variable");
+
+  if(!json_is_array(series_values) || !json_is_array(x_axis_values) || 
+     !json_is_string(series_variable_value) || !json_is_string(x_axis_variable_value)){
+    
+  }
+}
+
+void set_network_params(const NetParams params, const char *host){
+  char command[50];
+  system("sudo ipfw -q flush");
+
+  snprintf(command, 50, "sudo ipfw add pipe 1 ip from any to %s", host);
+  system(command);
+
+  snprintf(command, 50, "sudo ipfw pipe 1 config delay %dms bw %dKbit/s plr %f",
+           params.latency, params.bandwidth, ((float)params.packet_loss)/100);
+  system(command);
 }
 
 void read_from_server(int iterations, int size){
