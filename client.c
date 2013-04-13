@@ -14,7 +14,7 @@
 int main() { 
   json_t *configuration;
   const char *host;
-  const json_t *tests;
+  json_t *tests;
   configuration = read_configuration();
 
   if(!json_is_string(json_object_get(configuration, "host"))){
@@ -30,6 +30,7 @@ int main() {
   }
 
   execute_tests(tests, host);
+  json_decref(tests);
   return 0;
 }
 
@@ -160,10 +161,14 @@ void read_from_server(int iterations, int size){
   int bytes_sent;
   int bytes_recieved;
   int loop_var;
-  long total_time;
   char *recieve_buffer;
   struct sockaddr_in external_address;
   struct timespec tps, tpe;
+  long *time_differences;
+  long mean_time;
+  double stdev_time;
+
+  time_differences = malloc((iterations + 1) * sizeof(long));
 
   recieve_buffer = malloc(size * 1024);
 
@@ -172,16 +177,12 @@ void read_from_server(int iterations, int size){
   external_address.sin_addr.s_addr = inet_addr("54.225.93.141");
   memset(&(external_address.sin_zero), '\0', 8);
 
-  total_time = 0;
+  mean_time = 0;
   for(loop_var = 0; loop_var < iterations; loop_var++){
     if(clock_gettime(CLOCK_MONOTONIC_RAW, &tps) != 0){
       perror("clock_gettime");
       exit(1);
     }
-
-    printf("%lu s, %lu ns\n", tpe.tv_sec-tps.tv_sec,
-	   tpe.tv_nsec-tps.tv_nsec);
-
     if((server_socket_fd = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP)) == -1){
       perror("socket");
       exit(1);
@@ -207,11 +208,28 @@ void read_from_server(int iterations, int size){
       perror("clock_gettime");
       exit(1);
     }
-    
-    total_time += ((((unsigned long long)tpe.tv_sec) * 1000) + (((unsigned long long)tpe.tv_nsec) / 1000000) -
+
+    time_differences[loop_var] = ((((unsigned long long)tpe.tv_sec) * 1000) + (((unsigned long long)tpe.tv_nsec) / 1000000) -
 		    (((unsigned long long)tps.tv_sec) * 1000) - (((unsigned long long)tps.tv_nsec) / 1000000));
   }
-  fprintf(stderr, "Time: %ld\n", total_time);
+
+  mean_time = 0;
+  stdev_time = 0;
+
+  for(loop_var = 0; loop_var < iterations; loop_var++){
+    mean_time += time_differences[loop_var];
+  }
+  mean_time /= iterations;
+
+  for(loop_var = 0; loop_var < iterations; loop_var++){
+    stdev_time += (time_differences[loop_var] - mean_time) * (time_differences[loop_var] - mean_time);
+  }
+  stdev_time /= iterations - 1;
+  stdev_time = sqrt(stdev_time);
+  free(time_differences);
+  free(recieve_buffer);
+
+  fprintf(stderr, "Mean time: %ld, Standard deviation time: %f\n", mean_time, stdev_time);
 }
 
 void set_congestion_window(int packets){
