@@ -1,5 +1,5 @@
-#ifndef _STRING_H
-#define _STRING_H
+#ifndef _JJ_STRING_H
+#define _JJ_STRING_H
 
 typedef struct String{
   int current_length;

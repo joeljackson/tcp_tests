@@ -9,7 +9,6 @@
 #include "string.h"
 #include "server.h"
 
-
 int main() { 
   json_t *configuration;
   const char *host;
@@ -37,7 +36,7 @@ void execute_tests(const json_t *tests, const char *host){
   int size;
   json_t *test;
 
-  size = (int)json_array_size(test);
+  size = (int)json_array_size(tests);
   for(loop_var = 0; loop_var < size; loop_var++){
     test = json_array_get(tests, loop_var);
     if(!json_is_object(test)){
@@ -52,6 +51,9 @@ void run_test_plan(const json_t *test, const char *host){
   NetParams network_parameters;
   char *series_variable;
   char *x_axis_variable;
+  int x_axis_loop;
+  int series_loop;
+  int size;
   json_t *series_variable_value;
   json_t *x_axis_variable_value;
   json_t *series;
@@ -67,7 +69,7 @@ void run_test_plan(const json_t *test, const char *host){
   }
 
   if(json_is_integer(json_object_get(test, "file_size_kb"))){
-    set_send_size(json_integer_value(json_object_get(test, "initcnwd")));
+    set_send_size((size = json_integer_value(json_object_get(test, "file_size_kb"))));
   }else{
     fprintf(stderr, "Congestion window must be a string\n");
     exit(1);
@@ -93,20 +95,59 @@ void run_test_plan(const json_t *test, const char *host){
 
   if(!json_is_array(series_values) || !json_is_array(x_axis_values) || 
      !json_is_string(series_variable_value) || !json_is_string(x_axis_variable_value)){
-    
+    fprintf(stderr, "axis or series defined incorrectly");
+  }
+  
+  for(series_loop = 0; series_loop < json_array_size(series_values); series_loop++){
+    set_independent_variable(json_string_value(series_variable_value), json_integer_value(json_array_get(series_values, series_loop)), network_parameters, &size);
+    for(x_axis_loop = 0; x_axis_loop < json_array_size(x_axis_values); x_axis_values++){
+      set_independent_variable(json_string_value(series_variable_value), json_integer_value(json_array_get(series_values, series_loop)), network_parameters, &size);
+      read_from_server(100, size);
+    }
   }
 }
 
-void set_network_params(const NetParams params, const char *host){
-  char command[50];
-  system("sudo ipfw -q flush");
+void set_independent_variable(const char *var_name, const int value, NetParams params, int *size){
+  if(strncmp(var_name, "initcwnd", 8) == 0){
+    set_congestion_window(value);
+  }else if(strncmp(var_name, "bandwidth_kps", 13) == 0){
+    set_bandwidth(value, params);
+  }else if(strncmp(var_name, "latency_ms", 9) == 0){
+    set_latency(value, params);
+  }else if(strncmp(var_name, "packet_loss", 11) == 0){
+    set_packet_loss(value, params);
+  }else if(strncmp(var_name, "file_size_kb", 12) == 0){
+    set_send_size(value);
+    *size = value;
+  }
+}
 
-  snprintf(command, 50, "sudo ipfw add pipe 1 ip from any to %s", host);
-  system(command);
+void set_latency(const int latency, NetParams params){
+  params.latency = latency;
+  set_network_params(params);
+}
 
-  snprintf(command, 50, "sudo ipfw pipe 1 config delay %dms bw %dKbit/s plr %f",
-           params.latency, params.bandwidth, ((float)params.packet_loss)/100);
-  system(command);
+void set_bandwidth(const int bandwidth, NetParams params){
+  params.bandwidth = bandwidth;
+  set_network_params(params);
+}
+
+void set_packet_loss(const int packet_loss, NetParams params){
+  params.packet_loss = packet_loss;
+  set_network_params(params);
+}
+
+void set_network_params(const NetParams params){
+  char command_buffer[100];
+  snprintf(command_buffer, 100, "systemsudo tc qdisc del dev lo root");
+  system(command_buffer);
+  system("sudo tc qdisc add dev lo root handle 1: htb default 12");
+
+  snprintf(command_buffer, 100, "sudo tc class add dev lo parent 1:1 classid 1:12 htb rate %dkbps ceil %dkbps", params.bandwidth, params.bandwidth);
+  system(command_buffer);
+
+  snprintf(command_buffer, 100, "sudo tc qdisc add dev lo parent 1:12 netem delay %dms, %f%%", params.latency, ((float)params.packet_loss)/1000);
+  system(command_buffer);
 }
 
 void read_from_server(int iterations, int size){
@@ -223,7 +264,7 @@ json_t* read_configuration(){
   String *configuration;
   FILE *configuration_file;
 
-  configuration = new_string();
+  configuration = (String*)new_string();
   configuration_file = fopen("./configuration.json", "r");
 
   while(fgets(line, 500, configuration_file) != NULL){
