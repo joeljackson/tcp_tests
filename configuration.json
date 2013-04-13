@@ -19,7 +19,7 @@
     },
     {
       "initcnwd": 10,
-      "bandwidth_mps": 10,
+      "bandwidth_kps": 10,
       "latency_ms": 0,
       "packet_loss": 0,
       "file_size_kb": 10,

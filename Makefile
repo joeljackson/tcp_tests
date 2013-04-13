@@ -7,7 +7,7 @@ server.o: server.c server.h
 	gcc -c server.c
 
 client: client.o string.o
-	gcc -g -o client client.o string.o -ljansson
+	gcc -g -o client client.o string.o -ljansson -lrt -lm
 
 client.o: client.c client.h
 	gcc -g -c client.c

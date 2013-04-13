@@ -3,6 +3,8 @@
 #include <string.h>
 #include <stdlib.h>
 #include <netinet/in.h>
+#include <time.h>
+#include <math.h>
 #include <jansson.h>
 
 #include "client.h"
@@ -139,14 +141,17 @@ void set_packet_loss(const int packet_loss, NetParams params){
 
 void set_network_params(const NetParams params){
   char command_buffer[100];
-  snprintf(command_buffer, 100, "systemsudo tc qdisc del dev lo root");
+  snprintf(command_buffer, 100, "sudo tc qdisc del dev lo root");
   system(command_buffer);
   system("sudo tc qdisc add dev lo root handle 1: htb default 12");
 
+
   snprintf(command_buffer, 100, "sudo tc class add dev lo parent 1:1 classid 1:12 htb rate %dkbps ceil %dkbps", params.bandwidth, params.bandwidth);
+  fprintf(stderr, "%s\n", command_buffer);
   system(command_buffer);
 
-  snprintf(command_buffer, 100, "sudo tc qdisc add dev lo parent 1:12 netem delay %dms, %f%%", params.latency, ((float)params.packet_loss)/1000);
+  snprintf(command_buffer, 100, "sudo tc qdisc add dev lo parent 1:12 netem delay %dms loss %f%%", params.latency, ((float)params.packet_loss)/1000);
+  fprintf(stderr, "%s\n", command_buffer);
   system(command_buffer);
 }
 
@@ -155,8 +160,10 @@ void read_from_server(int iterations, int size){
   int bytes_sent;
   int bytes_recieved;
   int loop_var;
+  long total_time;
   char *recieve_buffer;
   struct sockaddr_in external_address;
+  struct timespec tps, tpe;
 
   recieve_buffer = malloc(size * 1024);
 
@@ -165,7 +172,16 @@ void read_from_server(int iterations, int size){
   external_address.sin_addr.s_addr = inet_addr("54.225.93.141");
   memset(&(external_address.sin_zero), '\0', 8);
 
+  total_time = 0;
   for(loop_var = 0; loop_var < iterations; loop_var++){
+    if(clock_gettime(CLOCK_MONOTONIC_RAW, &tps) != 0){
+      perror("clock_gettime");
+      exit(1);
+    }
+
+    printf("%lu s, %lu ns\n", tpe.tv_sec-tps.tv_sec,
+	   tpe.tv_nsec-tps.tv_nsec);
+
     if((server_socket_fd = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP)) == -1){
       perror("socket");
       exit(1);
@@ -176,21 +192,26 @@ void read_from_server(int iterations, int size){
       exit(1);
     }
 
-    fprintf(stderr, "About to send data\n");
     if((bytes_sent = send(server_socket_fd, SEND_DATA, 8, 0)) == -1){
       perror("send");
       exit(1);
     }
-    fprintf(stderr, "Data sent\n");
 
     if ((bytes_recieved=recv(server_socket_fd, recieve_buffer, size * 1024, MSG_WAITALL)) == -1) {
       perror("recv");
       exit(1);
     }
 
-    printf("I got %i bytes\n\n", bytes_recieved);
     close(server_socket_fd);
+    if(clock_gettime(CLOCK_MONOTONIC_RAW, &tpe) !=0){
+      perror("clock_gettime");
+      exit(1);
+    }
+    
+    total_time += ((((unsigned long long)tpe.tv_sec) * 1000) + (((unsigned long long)tpe.tv_nsec) / 1000000) -
+		    (((unsigned long long)tps.tv_sec) * 1000) - (((unsigned long long)tps.tv_nsec) / 1000000));
   }
+  fprintf(stderr, "Time: %ld\n", total_time);
 }
 
 void set_congestion_window(int packets){
