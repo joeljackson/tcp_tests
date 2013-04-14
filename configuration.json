@@ -2,7 +2,7 @@
   "host": "54.225.93.141",
   "tests": [
     {
-      "initcnwd": 10,
+      "initcnwd": 3,
       "bandwidth_kps": 10240,
       "latency_ms": 0,
       "packet_loss": 0,
@@ -14,7 +14,7 @@
       },
       "series":{
         "variable": "initcnwd",
-        "values": [3,10]
+        "values": [3]
       }
     }
   ]
