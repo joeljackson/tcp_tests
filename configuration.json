@@ -1,5 +1,5 @@
 {
-  "host": "127.0.0.1",
+  "host": "54.225.93.141",
   "tests": [
     {
       "initcnwd": 3,
@@ -10,7 +10,7 @@
       "iterations": 1,
       "x_axis":{
         "variable": "latency_ms",
-        "values": [0,10]
+        "values": [0]
       },
       "series":{
         "variable": "initcnwd",

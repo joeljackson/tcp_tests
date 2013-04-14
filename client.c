@@ -57,13 +57,13 @@ void run_test_plan(const json_t *test, const char *host){
   int x_axis_loop;
   int series_loop;
   int size;
+  int iterations;
   json_t *series_variable_value;
   json_t *x_axis_variable_value;
   json_t *series;
   json_t *x_axis;
   json_t *series_values;
   json_t *x_axis_values;
-
   series = json_object_get(test, "series");
   x_axis = json_object_get(test, "x_axis");
 
@@ -81,6 +81,8 @@ void run_test_plan(const json_t *test, const char *host){
      !json_is_string(series_variable_value) || !json_is_string(x_axis_variable_value)){
     fprintf(stderr, "axis or series defined incorrectly");
   }
+
+  iterations = json_integer_value(json_object_get(test, "iterations"));
   
   fprintf(stderr, "series: %i, x: %i\n", json_array_size(series_values), json_array_size(x_axis_values));
   for(series_loop = 0; series_loop < json_array_size(series_values); series_loop++){
@@ -88,7 +90,7 @@ void run_test_plan(const json_t *test, const char *host){
     set_independent_variable(json_string_value(series_variable_value), json_integer_value(json_array_get(series_values, series_loop)), network_parameters, &size);
     for(x_axis_loop = 0; x_axis_loop < json_array_size(x_axis_values); x_axis_loop++){
       set_independent_variable(json_string_value(x_axis_variable_value), json_integer_value(json_array_get(x_axis_values, x_axis_loop)), network_parameters, &size);
-      read_from_server(2, size);
+      read_from_server(iterations, size);
     }
   }
 }
@@ -148,16 +150,16 @@ void set_packet_loss(const int packet_loss, NetParams params){
 
 void set_network_params(const NetParams params){
   char command_buffer[100];
-  snprintf(command_buffer, 100, "sudo tc qdisc del dev lo root");
+  snprintf(command_buffer, 100, "sudo tc qdisc del dev eth0 root");
   system(command_buffer);
-  system("sudo tc qdisc add dev lo root handle 1: htb default 12");
+  system("sudo tc qdisc add dev eth0 root handle 1: htb default 12");
 
 
-  snprintf(command_buffer, 100, "sudo tc class add dev lo parent 1:1 classid 1:12 htb rate %dkbps ceil %dkbps", params.bandwidth, params.bandwidth);
+  snprintf(command_buffer, 100, "sudo tc class add dev eth0 parent 1:1 classid 1:12 htb rate %dkbps ceil %dkbps", params.bandwidth, params.bandwidth);
   fprintf(stderr, "%s\n", command_buffer);
   system(command_buffer);
 
-  snprintf(command_buffer, 100, "sudo tc qdisc add dev lo parent 1:12 netem delay %dms loss %f%%", params.latency, ((float)params.packet_loss)/1000);
+  snprintf(command_buffer, 100, "sudo tc qdisc add dev eth0 parent 1:12 netem delay %dms loss %f%%", params.latency, ((float)params.packet_loss)/1000);
   fprintf(stderr, "%s\n", command_buffer);
   system(command_buffer);
 }
