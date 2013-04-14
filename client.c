@@ -64,25 +64,6 @@ void run_test_plan(const json_t *test, const char *host){
   json_t *series_values;
   json_t *x_axis_values;
 
-  if(json_is_integer(json_object_get(test, "initcnwd"))){
-    set_congestion_window(json_integer_value(json_object_get(test, "initcnwd")));
-  }else{
-    fprintf(stderr, "Congestion window must be a string\n");
-    exit(1);
-  }
-
-  if(json_is_integer(json_object_get(test, "file_size_kb"))){
-    set_send_size((size = json_integer_value(json_object_get(test, "file_size_kb"))));
-  }else{
-    fprintf(stderr, "Congestion window must be a string\n");
-    exit(1);
-  }
-
-  network_parameters.latency = json_integer_value(json_object_get(test, "latency_ms"));
-  network_parameters.bandwidth = json_integer_value(json_object_get(test, "bandwidth_kps"));
-  network_parameters.packet_loss = json_integer_value(json_object_get(test, "packet_loss"));
-  set_network_params(network_parameters);
-
   series = json_object_get(test, "series");
   x_axis = json_object_get(test, "x_axis");
 
@@ -101,17 +82,42 @@ void run_test_plan(const json_t *test, const char *host){
     fprintf(stderr, "axis or series defined incorrectly");
   }
   
+  fprintf(stderr, "series: %i, x: %i\n", json_array_size(series_values), json_array_size(x_axis_values));
   for(series_loop = 0; series_loop < json_array_size(series_values); series_loop++){
+    set_defaults(test, &network_parameters, &size);
     set_independent_variable(json_string_value(series_variable_value), json_integer_value(json_array_get(series_values, series_loop)), network_parameters, &size);
-    for(x_axis_loop = 0; x_axis_loop < json_array_size(x_axis_values); x_axis_values++){
-      set_independent_variable(json_string_value(series_variable_value), json_integer_value(json_array_get(series_values, series_loop)), network_parameters, &size);
-      read_from_server(100, size);
+    for(x_axis_loop = 0; x_axis_loop < json_array_size(x_axis_values); x_axis_loop++){
+      set_independent_variable(json_string_value(x_axis_variable_value), json_integer_value(json_array_get(x_axis_values, x_axis_loop)), network_parameters, &size);
+      read_from_server(2, size);
     }
   }
 }
 
+void set_defaults(const json_t *test, NetParams *params, int *size){
+  if(json_is_integer(json_object_get(test, "initcnwd"))){
+    set_congestion_window(json_integer_value(json_object_get(test, "initcnwd")));
+  }else{
+    fprintf(stderr, "Congestion window must be a string\n");
+    exit(1);
+  }
+
+  if(json_is_integer(json_object_get(test, "file_size_kb"))){
+    set_send_size((*size = json_integer_value(json_object_get(test, "file_size_kb"))));
+  }else{
+    fprintf(stderr, "Congestion window must be a string\n");
+    exit(1);
+  }
+
+  params->latency = json_integer_value(json_object_get(test, "latency_ms"));
+  params->bandwidth = json_integer_value(json_object_get(test, "bandwidth_kps"));
+  params->packet_loss = json_integer_value(json_object_get(test, "packet_loss"));
+  set_network_params(*params);
+}
+
 void set_independent_variable(const char *var_name, const int value, NetParams params, int *size){
-  if(strncmp(var_name, "initcwnd", 8) == 0){
+  fprintf(stderr, "var name: %s, value: %d\n", var_name, value);
+  if(strncmp(var_name, "initcnwd", 8) == 0){
+    fprintf(stderr, "Set congestion window\n");
     set_congestion_window(value);
   }else if(strncmp(var_name, "bandwidth_kps", 13) == 0){
     set_bandwidth(value, params);
@@ -174,7 +180,7 @@ void read_from_server(int iterations, int size){
 
   external_address.sin_family = AF_INET;
   external_address.sin_port = htons(5010);
-  external_address.sin_addr.s_addr = inet_addr("54.225.93.141");
+  external_address.sin_addr.s_addr = inet_addr("127.0.0.1");
   memset(&(external_address.sin_zero), '\0', 8);
 
   mean_time = 0;
@@ -229,7 +235,7 @@ void read_from_server(int iterations, int size){
   free(time_differences);
   free(recieve_buffer);
 
-  fprintf(stderr, "Mean time: %ld, Standard deviation time: %f\n", mean_time, stdev_time);
+  fprintf(stderr, "Mean time: %ld, Standard deviation time: %f\n\n", mean_time, stdev_time);
 }
 
 void set_congestion_window(int packets){
@@ -249,6 +255,7 @@ void set_congestion_window(int packets){
   memset(&(external_address.sin_zero), '\0', 8);
 
   snprintf(command, 20, "%s %d", SET_CONGESTION_WINDOW, packets);
+  fprintf(stderr, "Command: %s\n", command);
 
   if (connect(server_socket_fd, (struct sockaddr *)&external_address, sizeof(struct sockaddr)) == -1) {
     perror("connect");

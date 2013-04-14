@@ -2,11 +2,11 @@
   "host": "127.0.0.1",
   "tests": [
     {
-      "initcnwd": 10,
+      "initcnwd": 3,
       "bandwidth_kps": 10240,
       "latency_ms": 0,
       "packet_loss": 0,
-      "file_size_kb": 10,
+      "file_size_kb": 14,
       "iterations": 1,
       "x_axis":{
         "variable": "latency_ms",
@@ -14,23 +14,7 @@
       },
       "series":{
         "variable": "initcnwd",
-        "values": [3,10,20]
-      }
-    },
-    {
-      "initcnwd": 10,
-      "bandwidth_kps": 10,
-      "latency_ms": 0,
-      "packet_loss": 0,
-      "file_size_kb": 10,
-      "iterations": 100,
-      "x_axis":{
-        "variable": "file_size_kb",
-        "values": [2,6,10,14,18,22,26,30,34,38,42,46,50,54,56,60,64,68,72,76,80,84,88,92,96,100]
-      },
-      "series":{
-        "variable": "initcnwd",
-        "values": [3,10,20,30,40,50,60,70,80,90,100]
+        "values": [3,10]
       }
     }
   ]
