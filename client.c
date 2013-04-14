@@ -3,12 +3,12 @@
 #include <string.h>
 #include <stdlib.h>
 #include <netinet/in.h>
-#include <time.h>
 #include <math.h>
 #include <jansson.h>
 
 #include "client.h"
 #include "string.h"
+#include "time.h"
 #include "server.h"
 
 int main() { 
@@ -164,11 +164,14 @@ void set_network_params(const NetParams params){
   fprintf(stderr, "%s\n", command_buffer);
   system(command_buffer);
 #elif __APPLE__
+  char command[100];
   system("sudo ipfw -q flush");
   system("sudo ipfw add pipe 1 ip from any to 54.225.93.141");
   system("sudo ipfw add pipe 2 ip from 54.225.93.141 to any");
-  system("sudo ipfw pipe 1 config delay %dms bw %dKbit/s plr %f", params.latency/2, params.bandwidth ,((float)params.packet_loss)/1000);
-  system("sudo ipfw pipe 2 config delay %dms bw %dKbit/s plr %f", params.latency/2, params.bandwidth ,((float)params.packet_loss)/1000);
+  snprintf(command, 100, "sudo ipfw pipe 1 config delay %dms bw %dKbit/s plr %f", params.latency/2, params.bandwidth ,((float)params.packet_loss)/1000);
+  system(command);
+  snprintf(command, 100, "sudo ipfw pipe 2 config delay %dms bw %dKbit/s plr %f", params.latency/2, params.bandwidth ,((float)params.packet_loss)/1000);
+  system(command);
 #endif
 }
 
@@ -179,7 +182,8 @@ void read_from_server(int iterations, int size){
   int loop_var;
   char *recieve_buffer;
   struct sockaddr_in external_address;
-  struct timespec tps, tpe;
+  long long int start_time;
+  long long int end_time;
   long *time_differences;
   long mean_time;
   double stdev_time;
@@ -195,10 +199,7 @@ void read_from_server(int iterations, int size){
 
   mean_time = 0;
   for(loop_var = 0; loop_var < iterations; loop_var++){
-    if(clock_gettime(CLOCK_MONOTONIC_RAW, &tps) != 0){
-      perror("clock_gettime");
-      exit(1);
-    }
+    start_time = get_time_milliseconds();
     if((server_socket_fd = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP)) == -1){
       perror("socket");
       exit(1);
@@ -220,13 +221,8 @@ void read_from_server(int iterations, int size){
     }
 
     close(server_socket_fd);
-    if(clock_gettime(CLOCK_MONOTONIC_RAW, &tpe) !=0){
-      perror("clock_gettime");
-      exit(1);
-    }
-
-    time_differences[loop_var] = ((((unsigned long long)tpe.tv_sec) * 1000) + (((unsigned long long)tpe.tv_nsec) / 1000000) -
-		    (((unsigned long long)tps.tv_sec) * 1000) - (((unsigned long long)tps.tv_nsec) / 1000000));
+    end_time = get_time_milliseconds();
+    time_differences[loop_var] = end_time - start_time;
   }
 
   mean_time = 0;
