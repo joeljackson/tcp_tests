@@ -149,6 +149,7 @@ void set_packet_loss(const int packet_loss, NetParams params){
 }
 
 void set_network_params(const NetParams params){
+#ifdef __linux__  
   char command_buffer[100];
   snprintf(command_buffer, 100, "sudo tc qdisc del dev eth0 root");
   system(command_buffer);
@@ -162,6 +163,13 @@ void set_network_params(const NetParams params){
   snprintf(command_buffer, 100, "sudo tc qdisc add dev eth0 parent 1:12 netem delay %dms loss %f%%", params.latency, ((float)params.packet_loss)/1000);
   fprintf(stderr, "%s\n", command_buffer);
   system(command_buffer);
+#elif __APPLE__
+  system("sudo ipfw -q flush");
+  system("sudo ipfw add pipe 1 ip from any to 54.225.93.141");
+  system("sudo ipfw add pipe 2 ip from 54.225.93.141 to any");
+  system("sudo ipfw pipe 1 config delay %dms bw %dKbit/s plr %f", params.latency/2, params.bandwidth ,((float)params.packet_loss)/1000);
+  system("sudo ipfw pipe 2 config delay %dms bw %dKbit/s plr %f", params.latency/2, params.bandwidth ,((float)params.packet_loss)/1000);
+#endif
 }
 
 void read_from_server(int iterations, int size){
@@ -182,7 +190,7 @@ void read_from_server(int iterations, int size){
 
   external_address.sin_family = AF_INET;
   external_address.sin_port = htons(5010);
-  external_address.sin_addr.s_addr = inet_addr("127.0.0.1");
+  external_address.sin_addr.s_addr = inet_addr("54.225.93.141");
   memset(&(external_address.sin_zero), '\0', 8);
 
   mean_time = 0;

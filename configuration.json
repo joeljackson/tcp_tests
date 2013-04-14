@@ -2,19 +2,19 @@
   "host": "54.225.93.141",
   "tests": [
     {
-      "initcnwd": 3,
+      "initcnwd": 20,
       "bandwidth_kps": 10240,
       "latency_ms": 0,
       "packet_loss": 0,
-      "file_size_kb": 14,
-      "iterations": 1,
+      "file_size_kb": 30,
+      "iterations": 40,
       "x_axis":{
-        "variable": "latency_ms",
-        "values": [0]
+        "variable": "file_size_kb",
+        "values": [2,6,10,14,18,22,24,28,32,36,40,44,48,52,56,60]
       },
       "series":{
-        "variable": "initcnwd",
-        "values": [3]
+        "variable": "latency_ms",
+        "values": [10]
       }
     }
   ]
