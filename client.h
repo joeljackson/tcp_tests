@@ -22,5 +22,6 @@ void set_independent_variable(const char *var_name, const int value,
 void set_latency(const int latency, const NetParams params);
 void set_bandwidth(const int bandwidth, const NetParams params);
 void set_packet_loss(const int packet_loss, const NetParams params);
+void set_defaults(const json_t *test, NetParams *params, int *size);
 
 #endif

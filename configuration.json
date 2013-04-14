@@ -6,7 +6,7 @@
       "bandwidth_kps": 10240,
       "latency_ms": 0,
       "packet_loss": 0,
-      "file_size_kb": 10,
+      "file_size_kb": 14,
       "iterations": 1,
       "x_axis":{
         "variable": "latency_ms",
